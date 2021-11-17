@@ -47,9 +47,10 @@ int main()
     fclose(stdout);
 
     // Statistics records
-    // freopen("statistics.csv", "w", stdout);
-    // std::cout << simulation.GetSimulationLog()->GetSimulationStatistics();
-    // fclose(stdout);
+    
+    freopen("statistics.csv", "w", stdout);
+    std::cout << simulation.GetSimulationLog()->GetSimulationStatistics();
+    fclose(stdout);
 
     return 0;
 }

@@ -22,6 +22,7 @@ class Simulation
     std::vector<Server> servers;
 
     // Customer queue waiting for service
+    std::vector<std::queue<Customer> > service_queues;
     std::queue<Customer> service_queue;
 
     // Minimum heap that keeps the Events sorted on their invoke time
@@ -78,6 +79,9 @@ public:
 
     // Find first available server
     int GetAvailableServerIndex();
+
+    // Find first smallest queue
+    int GetSmallestQueue();
 };
 
 #endif

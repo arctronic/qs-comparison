@@ -36,6 +36,7 @@ void Simulation::Initialize()
 
     // Schedule the first arrival event
     Event arrival_event(EventType::ARRIVAL, this->clock + this->inter_arrival_time_generator.GetRandomNumber());
+    this->service_queues.resize(this->number_of_servers);
     this->event_queue.push(arrival_event);
 }
 
@@ -79,8 +80,9 @@ void Simulation::HandleArrival()
     // If there are no server availble
     if (available_server_index == -1)
     {
+        int queue_no = this->GetSmallestQueue();
         // Send customer to the queue
-        this->service_queue.push(customer);
+        this->service_queues[queue_no].push(customer);
 
         // Log the arrival event
         CreateArrivalLog(customer);
@@ -117,45 +119,63 @@ void Simulation::HandleDeparture(int target_server_index)
     CreateDepartureLog(target_server_index);
 
     // If there are customers in queue, decrease queue length and schedule service time
-    if (!(this->service_queue.empty()))
+    for (int i = 0; i < this->service_queues.size(); i++)
     {
-        // Fetch first customer from the queue and send him to server
-        Customer customer = service_queue.front();
-        customer.SetServer(target_server_index);
-        customer.SetServiceStartTime(this->clock);
-        this->servers[target_server_index].SetCurrentCustomer(customer);
+        if (!(this->service_queues[i].empty()))
+        {
+            // Fetch first customer from the queue and send him to server
+            Customer customer = service_queues[i].front();
+            customer.SetServer(target_server_index);
+            customer.SetServiceStartTime(this->clock);
+            this->servers[target_server_index].SetCurrentCustomer(customer);
 
-        this->service_queue.pop();
+            this->service_queues[i].pop();
 
-        // Set server to busy state
-        this->servers[target_server_index].SetServerStatus(ServerStatus::BUSY);
+            // Set server to busy state
+            this->servers[target_server_index].SetServerStatus(ServerStatus::BUSY);
 
-        // Schedule the departure event (end of service)
-        Event departure_event(EventType::DEPARTURE, this->clock + this->service_time_generator.GetRandomNumber(), target_server_index);
-        this->event_queue.push(departure_event);
+            // Schedule the departure event (end of service)
+            Event departure_event(EventType::DEPARTURE, this->clock + this->service_time_generator.GetRandomNumber(), target_server_index);
+            this->event_queue.push(departure_event);
 
-        // Log the service event
-        CreateServiceLog(target_server_index);
+            // Log the service event
+            CreateServiceLog(target_server_index);
+        }
     }
 }
 
 void Simulation::CreateArrivalLog(Customer customer)
 {
-    this->simulation_log.CreateEventRecord("Arrival", this->clock, customer.GetSerial(), this->service_queue.size(), -1);
+    std::vector<int> sizes;
+    for (int i = 0; i < this->service_queues.size(); i++)
+    {
+        sizes.push_back(this->service_queues[i].size());
+    }
+    this->simulation_log.CreateEventRecord("Arrival", this->clock, customer.GetSerial(), sizes, -1);
 }
 
 void Simulation::CreateServiceLog(int server_index)
 {
+    std::vector<int> sizes;
+    for (int i = 0; i < this->service_queues.size(); i++)
+    {
+        sizes.push_back(this->service_queues[i].size());
+    }
+
     Customer currently_served_customer = this->servers[server_index].GetCurrentCustomer();
 
-    this->simulation_log.CreateEventRecord("Service", this->clock, currently_served_customer.GetSerial(), this->service_queue.size(), currently_served_customer.GetServer());
+    this->simulation_log.CreateEventRecord("Service", this->clock, currently_served_customer.GetSerial(), sizes, currently_served_customer.GetServer());
 }
 
 void Simulation ::CreateDepartureLog(int server_index)
 {
     Customer currently_served_customer = this->servers[server_index].GetCurrentCustomer();
-
-    this->simulation_log.CreateEventRecord("Departure", this->clock, currently_served_customer.GetSerial(), this->service_queue.size(), currently_served_customer.GetServer());
+    std::vector<int> sizes;
+    for (int i = 0; i < this->service_queues.size(); i++)
+    {
+        sizes.push_back(this->service_queues[i].size());
+    }
+    this->simulation_log.CreateEventRecord("Departure", this->clock, currently_served_customer.GetSerial(), sizes, currently_served_customer.GetServer());
     currently_served_customer.SetDepartureTime(this->clock);
     this->simulation_log.CreateCustomerRecord(currently_served_customer);
 }
@@ -174,4 +194,23 @@ int Simulation::GetAvailableServerIndex()
 
     // No server is available
     return -1;
+}
+
+int Simulation::GetSmallestQueue()
+{
+    int minIdx = 0;
+    int min = 0;
+    for (int i = 0; i < this->service_queues.size(); i++)
+    {
+        if (this->service_queues[i].size() == 0)
+        {
+            return i;
+        }
+        if (this->service_queues[i].size() < min)
+        {
+            min = this->service_queues[i].size();
+            minIdx = i;
+        }
+    }
+    return minIdx;
 }
